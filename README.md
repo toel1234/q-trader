@@ -10,6 +10,15 @@ The model uses n-day windows of normalized price changes to determine the optima
 - **Environment:** Standardized Gymnasium `StockTradingEnv`.
 - **Modern Stack:** Python 3.12+, Pandas for data handling, and SB3 for robust RL.
 
+## Results (2026 Modernized)
+
+After 200 episodes of training on the S&P 500 (^GSPC), the Transformer-based PPO agent achieved the following results on the 2011 test set:
+
+![^GSPC 2011 Result](images/^GSPC_2011_result.png)
+**S&P 500, 2011. Profit of $542.20.**
+
+The plot shows the agent's strategic Buy (Green) and Sell (Red) points, successfully capturing market trends using its self-attention mechanism.
+
 ## Running the Code
 
 Ensure you are using the correct virtual environment.

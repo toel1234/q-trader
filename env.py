@@ -30,24 +30,43 @@ class StockTradingEnv(gym.Env):
         self.inventory = []
         self.total_profit = 0
         self.done = False
+        self.action_counts = {0: 0, 1: 0, 2: 0}
         
         state = getState(self.data, self.t, self.window_size + 1)
         return state.astype(np.float32), {}
 
     def step(self, action):
+        if isinstance(action, np.ndarray):
+            action = action.item()
+        action = int(action)
+        
         reward = 0
         current_price = self.data[self.t]
+        self.action_counts[action] += 1
         
         if action == 1: # Buy
             self.inventory.append(current_price)
+            # reward = -0.01 # small cost for buying?
         elif action == 2 and len(self.inventory) > 0: # Sell
             bought_price = self.inventory.pop(0)
-            reward = max(current_price - bought_price, 0)
-            self.total_profit += current_price - bought_price
+            profit = current_price - bought_price
+            self.total_profit += profit
+            
+            # Significant reward for profit, penalty for loss
+            if profit > 0:
+                reward = 1.0 + (profit / bought_price) * 10 
+            else:
+                reward = -1.0
+        
+        # Small penalty for holding inventory too long or sitting idle when price moves?
+        # For now, keep it simple.
             
         self.t += 1
         self.done = True if self.t == self.l else False
         
+        if self.done:
+            print(f"Episode Done. Actions: {self.action_counts}, Profit: {formatPrice(self.total_profit)}")
+
         next_state = getState(self.data, self.t, self.window_size + 1)
         
         info = {"total_profit": self.total_profit, "inventory_count": len(self.inventory)}
