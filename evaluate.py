@@ -1,49 +1,40 @@
-import keras
-from keras.models import load_model
-
-from agent.agent import Agent
-from functions import *
 import sys
+from stable_baselines3 import PPO
+from env import StockTradingEnv
+from functions import getStockDataVec, formatPrice
 
-if len(sys.argv) != 3:
-	print "Usage: python evaluate.py [stock] [model]"
-	exit()
+def evaluate():
+    if len(sys.argv) != 3:
+        print("Usage: python evaluate.py [stock] [model_name]")
+        return
 
-stock_name, model_name = sys.argv[1], sys.argv[2]
-model = load_model("models/" + model_name)
-window_size = model.layers[0].input.shape.as_list()[1]
+    stock_name, model_name = sys.argv[1], sys.argv[2]
+    
+    # In practice, window_size should match the trained model's window_size
+    # For this script, we'll try to infer it or keep it consistent (e.g., 10)
+    window_size = 10 
+    
+    data = getStockDataVec(stock_name)
+    env = StockTradingEnv(data, window_size)
+    
+    model = PPO.load("models/" + model_name, env=env)
+    
+    obs, _ = env.reset()
+    done = False
+    
+    print(f"Evaluating model {model_name} on {stock_name}...")
+    
+    while not done:
+        action, _states = model.predict(obs, deterministic=True)
+        obs, reward, done, truncated, info = env.step(action)
+        
+        # Optional: Print actions as they happen
+        # if action == 1: print(f"Buy at {data[env.t-1]}")
+        # elif action == 2: print(f"Sell at {data[env.t-1]}")
 
-agent = Agent(window_size, True, model_name)
-data = getStockDataVec(stock_name)
-l = len(data) - 1
-batch_size = 32
+    print("--------------------------------")
+    print(f"Total Profit: {formatPrice(info['total_profit'])}")
+    print("--------------------------------")
 
-state = getState(data, 0, window_size + 1)
-total_profit = 0
-agent.inventory = []
-
-for t in xrange(l):
-	action = agent.act(state)
-
-	# sit
-	next_state = getState(data, t + 1, window_size + 1)
-	reward = 0
-
-	if action == 1: # buy
-		agent.inventory.append(data[t])
-		print "Buy: " + formatPrice(data[t])
-
-	elif action == 2 and len(agent.inventory) > 0: # sell
-		bought_price = agent.inventory.pop(0)
-		reward = max(data[t] - bought_price, 0)
-		total_profit += data[t] - bought_price
-		print "Sell: " + formatPrice(data[t]) + " | Profit: " + formatPrice(data[t] - bought_price)
-
-	done = True if t == l - 1 else False
-	agent.memory.append((state, action, reward, next_state, done))
-	state = next_state
-
-	if done:
-		print "--------------------------------"
-		print stock_name + " Total Profit: " + formatPrice(total_profit)
-		print "--------------------------------"
+if __name__ == "__main__":
+    evaluate()
